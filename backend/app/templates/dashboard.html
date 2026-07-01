@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ app_name }} - Admin Dashboard</title>
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark border-bottom border-secondary py-3">
+        <div class="container-fluid px-4">
+            <a class="navbar-brand d-flex align-items-center gap-2" href="#">
+                <i class="fa-solid fa-cloud-arrow-up text-primary fs-3"></i>
+                <span class="fw-bold tracking-tight text-white">{{ app_name }}</span>
+            </a>
+            <div class="d-flex align-items-center gap-3">
+                <span class="badge bg-secondary px-3 py-2 fs-6">
+                    <i class="fa-solid fa-clock me-1 text-warning"></i> Uptime: {{ server_uptime }}
+                </span>
+                <span class="badge bg-dark border border-secondary px-3 py-2 fs-6">
+                    v{{ version }}
+                </span>
+                <button class="btn btn-outline-light btn-sm" onclick="window.location.reload();">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid px-4 py-4">
+        <!-- Stats Counter Row -->
+        <div class="row g-4 mb-4">
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card h-100 bg-dark-subtle border border-secondary shadow-sm">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="rounded-circle bg-primary-subtle p-3 me-3 text-primary">
+                            <i class="fa-solid fa-file-arrow-up fs-2"></i>
+                        </div>
+                        <div>
+                            <h6 class="card-subtitle text-muted mb-1 text-uppercase fw-semibold" style="font-size: 0.75rem;">Total Uploads</h6>
+                            <h3 class="card-title mb-0 fw-bold">{{ total_uploads }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card h-100 bg-dark-subtle border border-secondary shadow-sm">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="rounded-circle bg-success-subtle p-3 me-3 text-success">
+                            <i class="fa-solid fa-hard-drive fs-2"></i>
+                        </div>
+                        <div>
+                            <h6 class="card-subtitle text-muted mb-1 text-uppercase fw-semibold" style="font-size: 0.75rem;">Storage Used</h6>
+                            <h3 class="card-title mb-0 fw-bold" id="totalStorageDisplay">0 B</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card h-100 bg-dark-subtle border border-secondary shadow-sm">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="rounded-circle bg-info-subtle p-3 me-3 text-info">
+                            <i class="fa-solid fa-circle-check fs-2"></i>
+                        </div>
+                        <div>
+                            <h6 class="card-subtitle text-muted mb-1 text-uppercase fw-semibold" style="font-size: 0.75rem;">Dedup Savings</h6>
+                            <h3 class="card-title mb-0 fw-bold text-info" id="dedupSavingsDisplay">0 B</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="card h-100 bg-dark-subtle border border-secondary shadow-sm">
+                    <div class="card-body d-flex align-items-center">
+                        <div class="rounded-circle bg-danger-subtle p-3 me-3 text-danger">
+                            <i class="fa-solid fa-triangle-exclamation fs-2"></i>
+                        </div>
+                        <div>
+                            <h6 class="card-subtitle text-muted mb-1 text-uppercase fw-semibold" style="font-size: 0.75rem;">Failed Uploads</h6>
+                            <h3 class="card-title mb-0 fw-bold {% if failed_count > 0 %}text-danger{% endif %}">{{ failed_count }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <!-- Storage breakdown chart -->
+            <div class="col-12 col-lg-4">
+                <div class="card h-100 bg-dark-subtle border border-secondary shadow-sm">
+                    <div class="card-header bg-transparent border-secondary py-3">
+                        <h5 class="card-title mb-0 fw-bold"><i class="fa-solid fa-chart-pie me-2 text-primary"></i>Storage Breakdown</h5>
+                    </div>
+                    <div class="card-body d-flex flex-column align-items-center justify-content-center">
+                        <div style="max-height: 220px; width: 100%; position: relative;">
+                            <canvas id="storageChart"></canvas>
+                        </div>
+                        <div class="w-100 mt-4">
+                            <div class="d-flex justify-content-between mb-1" style="font-size: 0.85rem;">
+                                <span><i class="fa-solid fa-image text-primary me-1"></i> Images ({{ storage_stats.image_count }})</span>
+                                <span class="fw-bold" id="imagesSizeText">0 B</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1" style="font-size: 0.85rem;">
+                                <span><i class="fa-solid fa-video text-success me-1"></i> Videos ({{ storage_stats.video_count }})</span>
+                                <span class="fw-bold" id="videosSizeText">0 B</span>
+                            </div>
+                            <div class="d-flex justify-content-between mb-1" style="font-size: 0.85rem;">
+                                <span><i class="fa-solid fa-images text-warning me-1"></i> Thumbnails</span>
+                                <span class="fw-bold" id="thumbnailsSizeText">0 B</span>
+                            </div>
+                            <div class="d-flex justify-content-between" style="font-size: 0.85rem;">
+                                <span><i class="fa-solid fa-trash-can text-danger me-1"></i> Temporary Cache</span>
+                                <span class="fw-bold" id="tempSizeText">0 B</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Sessions & Progress -->
+            <div class="col-12 col-lg-8">
+                <div class="card h-100 bg-dark-subtle border border-secondary shadow-sm">
+                    <div class="card-header bg-transparent border-secondary py-3 d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0 fw-bold"><i class="fa-solid fa-rotate me-2 text-success"></i>Backup Sessions</h5>
+                        <span class="badge bg-success-subtle text-success border border-success">{{ active_devices_count }} Active Device(s)</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0" style="background-color: transparent;">
+                                <thead class="table-dark">
+                                    <tr>
+                                        <th class="ps-3 border-secondary">Device</th>
+                                        <th class="border-secondary">Status</th>
+                                        <th class="border-secondary">Files Uploaded</th>
+                                        <th class="border-secondary">Bytes Transferred</th>
+                                        <th class="border-secondary">Progress</th>
+                                        <th class="pe-3 border-secondary">Started At</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if recent_sessions %}
+                                        {% for s in recent_sessions %}
+                                        <tr>
+                                            <td class="ps-3 fw-bold text-white">{{ s.device_label }}</td>
+                                            <td>
+                                                {% if s.status == 'active' %}
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary spinner-grow-sm"><i class="fa-solid fa-circle-notch fa-spin me-1"></i>Active</span>
+                                                {% elif s.status == 'completed' %}
+                                                    <span class="badge bg-success-subtle text-success border border-success"><i class="fa-solid fa-check me-1"></i>Completed</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger-subtle text-danger border border-danger"><i class="fa-solid fa-xmark me-1"></i>Failed</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ s.uploaded_files }} / {{ s.total_files }}</td>
+                                            <td class="bytes-format" data-bytes="{{ s.uploaded_bytes }}">{{ s.uploaded_bytes }}</td>
+                                            <td style="width: 25%;">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <div class="progress w-100" style="height: 6px;">
+                                                        <div class="progress-bar {% if s.status == 'active' %}bg-primary progress-bar-striped progress-bar-animated{% elif s.status == 'completed' %}bg-success{% else %}bg-danger{% endif %}" role="progressbar" style="width: {{ s.progress_percent }}%;" aria-valuenow="{{ s.progress_percent }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                                    </div>
+                                                    <span class="small fw-semibold text-white">{{ s.progress_percent }}%</span>
+                                                </div>
+                                            </td>
+                                            <td class="pe-3 text-muted" style="font-size: 0.85rem;">{{ s.started_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="6" class="text-center py-4 text-muted">No backup sessions found</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <!-- Recent Uploads -->
+            <div class="col-12 col-xl-6">
+                <div class="card h-100 bg-dark-subtle border border-secondary shadow-sm">
+                    <div class="card-header bg-transparent border-secondary py-3">
+                        <h5 class="card-title mb-0 fw-bold"><i class="fa-solid fa-cloud-arrow-up me-2 text-primary"></i>Recent Uploaded Files</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-hover align-middle mb-0" style="background-color: transparent;">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th class="ps-3 border-secondary">Original Name</th>
+                                        <th class="border-secondary">Device</th>
+                                        <th class="border-secondary">Size</th>
+                                        <th class="border-secondary">MIME Type</th>
+                                        <th class="pe-3 border-secondary text-end">Uploaded</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if recent_uploads %}
+                                        {% for u in recent_uploads %}
+                                        <tr>
+                                            <td class="ps-3 text-white fw-semibold" title="{{ u.original_filename }}">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    {% if u.mime_type.startswith('image/') %}
+                                                        <i class="fa-solid fa-image text-primary"></i>
+                                                    {% elif u.mime_type.startswith('video/') %}
+                                                        <i class="fa-solid fa-video text-success"></i>
+                                                    {% else %}
+                                                        <i class="fa-solid fa-file text-warning"></i>
+                                                    {% endif %}
+                                                    <span class="text-truncate" style="max-width: 180px;">{{ u.original_filename }}</span>
+                                                </div>
+                                            </td>
+                                            <td>{{ u.device_label }}</td>
+                                            <td class="bytes-format" data-bytes="{{ u.file_size }}">{{ u.file_size }}</td>
+                                            <td><code class="text-white-50" style="font-size: 0.8rem;">{{ u.mime_type }}</code></td>
+                                            <td class="pe-3 text-end text-muted small">{{ u.uploaded_time.strftime('%b %d, %H:%M') }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="5" class="text-center py-4 text-muted">No files uploaded yet</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Failures -->
+            <div class="col-12 col-xl-6">
+                <div class="card h-100 bg-dark-subtle border border-secondary shadow-sm">
+                    <div class="card-header bg-transparent border-secondary py-3">
+                        <h5 class="card-title mb-0 fw-bold text-danger"><i class="fa-solid fa-circle-exclamation me-2"></i>Recent Failures</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                            <table class="table table-hover align-middle mb-0" style="background-color: transparent;">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th class="ps-3 border-secondary">File Name</th>
+                                        <th class="border-secondary">Device</th>
+                                        <th class="border-secondary">Error Message</th>
+                                        <th class="pe-3 border-secondary text-end">Occurred</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if recent_failures %}
+                                        {% for f in recent_failures %}
+                                        <tr>
+                                            <td class="ps-3 text-danger fw-semibold text-truncate" style="max-width: 150px;" title="{{ f.original_filename }}">{{ f.original_filename }}</td>
+                                            <td><code class="text-muted">{{ f.device_id[:8] }}...</code></td>
+                                            <td class="text-white-50 small" title="{{ f.error_message }}">{{ f.error_message }}</td>
+                                            <td class="pe-3 text-end text-muted small">{{ f.created_at.strftime('%b %d, %H:%M') }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="4" class="text-center py-4 text-muted">No failure reports recorded</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Activity Log -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card bg-dark-subtle border border-secondary shadow-sm">
+                    <div class="card-header bg-transparent border-secondary py-3">
+                        <h5 class="card-title mb-0 fw-bold"><i class="fa-solid fa-terminal me-2 text-warning"></i>Recent Activity logs</h5>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                            <table class="table table-hover align-middle mb-0" style="background-color: transparent; font-family: var(--bs-font-monospace); font-size: 0.85rem;">
+                                <thead class="table-dark sticky-top">
+                                    <tr>
+                                        <th class="ps-3 border-secondary" style="width: 18%;">Timestamp</th>
+                                        <th class="border-secondary" style="width: 15%;">Device</th>
+                                        <th class="border-secondary" style="width: 18%;">Action</th>
+                                        <th class="border-secondary" style="width: 39%;">Details</th>
+                                        <th class="pe-3 border-secondary text-end" style="width: 10%;">IP Address</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% if recent_logs %}
+                                        {% for l in recent_logs %}
+                                        <tr>
+                                            <td class="ps-3 text-muted">{{ l.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                            <td><code class="text-info">{{ l.device_id }}</code></td>
+                                            <td>
+                                                {% if l.action == 'upload_completed' %}
+                                                    <span class="badge bg-success-subtle text-success border border-success">UPLOAD_SUCCESS</span>
+                                                {% elif l.action == 'dedup_hit' %}
+                                                    <span class="badge bg-info-subtle text-info border border-info">DEDUP_HIT</span>
+                                                {% elif l.action == 'deleted' %}
+                                                    <span class="badge bg-warning-subtle text-warning border border-warning">DELETED</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger-subtle text-danger border border-danger">{{ l.action.upper() }}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="text-white-50 text-truncate" style="max-width: 400px;" title="{{ l.details }}">{{ l.details }}</td>
+                                            <td class="pe-3 text-end text-muted">{{ l.ip_address or '-' }}</td>
+                                        </tr>
+                                        {% endfor %}
+                                    {% else %}
+                                        <tr>
+                                            <td colspan="5" class="text-center py-4 text-muted">No activity logs recorded</td>
+                                        </tr>
+                                    {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart.js and custom logic -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Formatting function for bytes
+        function formatBytes(bytes, decimals = 2) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const dm = decimals < 0 ? 0 : decimals;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+        }
+
+        // Apply formatting to marked elements
+        document.querySelectorAll('.bytes-format').forEach(function(el) {
+            const bytes = parseInt(el.textContent);
+            if (!isNaN(bytes)) {
+                el.textContent = formatBytes(bytes);
+            }
+        });
+
+        // Set top stats displays
+        document.getElementById('totalStorageDisplay').textContent = formatBytes({{ total_storage_bytes }});
+        document.getElementById('dedupSavingsDisplay').textContent = formatBytes({{ dedup_savings_bytes }});
+        
+        // Storage breakdown text
+        document.getElementById('imagesSizeText').textContent = formatBytes({{ storage_stats.images_size_bytes }});
+        document.getElementById('videosSizeText').textContent = formatBytes({{ storage_stats.videos_size_bytes }});
+        document.getElementById('thumbnailsSizeText').textContent = formatBytes({{ storage_stats.thumbnails_size_bytes }});
+        document.getElementById('tempSizeText').textContent = formatBytes({{ storage_stats.temp_size_bytes }});
+
+        // Render Storage Chart
+        const ctx = document.getElementById('storageChart').getContext('2d');
+        const imgSize = {{ storage_stats.images_size_bytes }};
+        const vidSize = {{ storage_stats.videos_size_bytes }};
+        const thumbSize = {{ storage_stats.thumbnails_size_bytes }};
+        const tempSize = {{ storage_stats.temp_size_bytes }};
+        
+        const hasData = (imgSize + vidSize + thumbSize + tempSize) > 0;
+        
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Images', 'Videos', 'Thumbnails', 'Temp Cache'],
+                datasets: [{
+                    data: hasData ? [imgSize, vidSize, thumbSize, tempSize] : [1, 0, 0, 0],
+                    backgroundColor: hasData ? [
+                        '#0d6efd', // primary (blue)
+                        '#198754', // success (green)
+                        '#ffc107', // warning (yellow)
+                        '#dc3545'  // danger (red)
+                    ] : ['#495057'],
+                    borderColor: '#212529',
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false // Handled by custom legend text below the chart
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                if (!hasData) return 'No storage used yet';
+                                const value = context.raw;
+                                return ' ' + context.label + ': ' + formatBytes(value);
+                            }
+                        }
+                    }
+                },
+                cutout: '75%'
+            }
+        });
+
+        // Auto-refresh every 30 seconds
+        setTimeout(function() {
+            window.location.reload();
+        }, 30000);
+    </script>
+</body>
+</html>

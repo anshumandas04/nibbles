@@ -19,18 +19,56 @@ router = APIRouter(
     "/start",
     response_model=BackupStartResponse,
     summary="Start a Backup Session",
-    description="Initialize a new backup session for a device. Returns a session_id needed for manifest and upload endpoints.",
-    tags=["Backup"],
-    responses={
-        200: {"description": "Backup session created successfully"},
-        401: {"description": "Invalid or missing X-API-Key header"},
-        422: {"description": "Invalid request body (missing required fields)"}
-    }
+    description="Initialize a new backup session for a device"
 )
 async def start_backup(
     request: BackupStartRequest,
     db: AsyncSession = Depends(get_db)
-):\n    \"\"\"Start a new backup session.
+):
+    service = BackupService(db)
+    return await service.start_session(request)
+
+@router.post(
+    "/manifest",
+    response_model=ManifestResponse,
+    summary="Check File Manifest (Delta Sync)",
+    description="Submit file hashes to identify missing files for deduplication"
+)
+async def check_manifest(
+    request: ManifestRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    service = BackupService(db)
+    return await service.check_manifest(request)
+
+@router.get(
+    "/session/{session_id}",
+    response_model=SessionResponse,
+    summary="Get Session Details",
+    description="Retrieve session information including upload progress"
+)
+async def get_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    service = BackupService(db)
+    return await service.get_session(session_id)
+
+@router.delete(
+    "/session/{session_id}",
+    response_model=SuccessResponse,
+    summary="Delete Backup Session",
+    description="Remove a backup session record"
+)
+async def delete_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    service = BackupService(db)
+    deleted = await service.delete_session(session_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Session not found")
+    return SuccessResponse(message="Backup session deleted successfully")
     \n    **Flow:**
     1. Device provides device_id and metadata
     2. Server creates session record

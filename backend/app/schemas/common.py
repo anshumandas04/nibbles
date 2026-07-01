@@ -78,4 +78,4 @@ class VersionResponse(BaseModel):
         ...,
         description="Response timestamp",
         example="2026-07-02T10:30:45.123Z"
-    )"
+    )

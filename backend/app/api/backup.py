@@ -101,4 +101,4 @@ async def delete_session(
     deleted = await service.delete_session(session_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")
-    return SuccessResponse(message="Backup session deleted successfully")"
+    return SuccessResponse(message="Backup session deleted successfully")

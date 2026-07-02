@@ -11,18 +11,23 @@ class UploadResponse(BaseModel):
     )
     upload_id: str = Field(
         ...,
-        description="Unique identifier for this upload",
+        description="Unique identifier for this upload (UUID)",
         example="3be5cf22-901d-4008-8e6d-2dcf1e73998b"
     )
     stored_filename: str = Field(
         ...,
         description="Filename as stored on server (UUID-based for security)",
-        example="cb03164ad0e74f828a2a89feeb61d0bf.jpg"
+        example="3be5cf22-901d-4008-8e6d-2dcf1e73998b.jpg"
     )
     sha256: str = Field(
         ...,
-        description="SHA-256 hash of uploaded file",
+        description="SHA-256 hash computed by server during upload",
         example="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    )
+    mime_type: str = Field(
+        ...,
+        description="MIME type detected by server (using python-magic)",
+        example="image/jpeg"
     )
     size: int = Field(
         ...,
@@ -40,65 +45,6 @@ class UploadResponse(BaseModel):
         example="2026-07-02T10:35:20.789Z"
     )
 
-class UploadCompleteRequest(BaseModel):
-    """Request to verify upload integrity."""
-    upload_id: str = Field(
-        ...,
-        description="Upload ID from the upload response",
-        example="3be5cf22-901d-4008-8e6d-2dcf1e73998b"
-    )
-    sha256: str = Field(
-        ..., 
-        min_length=64, 
-        max_length=64,
-        description="SHA-256 hash to verify against stored file",
-        example="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    )
-
-class UploadCompleteResponse(BaseModel):
-    """Response after upload integrity verification."""
-    success: bool = Field(
-        True,
-        description="Whether verification succeeded"
-    )
-    upload_id: str = Field(
-        ...,
-        description="Upload ID that was verified",
-        example="3be5cf22-901d-4008-8e6d-2dcf1e73998b"
-    )
-    verified: bool = Field(
-        ...,
-        description="Whether SHA-256 verification passed",
-        example=True
-    )
-    message: str = Field(
-        ...,
-        description="Human-readable verification result",
-        example="Verification successful"
-    )
-
-class UploadFailureRequest(BaseModel):
-    """Report a failed upload to the server."""
-    device_id: str = Field(
-        ...,
-        description="Device that attempted upload",
-        example="device-001"
-    )
-    original_filename: str = Field(
-        ...,
-        description="Name of the file that failed to upload",
-        example="photo.jpg"
-    )
-    sha256: Optional[str] = Field(
-        None,
-        description="SHA-256 of the file (if available)",
-        example="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
-    )
-    error_message: str = Field(
-        ...,
-        description="Error message explaining the failure",
-        example="Network timeout during upload"
-    )
 
 class UploadSummary(BaseModel):
     """Summary of a recent upload."""

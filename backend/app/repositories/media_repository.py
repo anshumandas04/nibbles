@@ -42,6 +42,26 @@ class MediaRepository:
         )
         return result.scalar_one_or_none()
 
+    async def find_by_sha256_any(self, sha256: str) -> MediaFile | None:
+        """Find an existing media file by its SHA-256 hash globally (any device).
+
+        Used for global deduplication across all devices/users.
+
+        Args:
+            sha256: The SHA-256 hex digest of the file content.
+
+        Returns:
+            The MediaFile instance if found, otherwise None.
+        """
+        result = await self.db.execute(
+            select(MediaFile).where(
+                MediaFile.sha256 == sha256,
+                MediaFile.is_complete.is_(True),
+            ).limit(1)
+        )
+        return result.scalar_one_or_none()
+
+
     async def find_existing_hashes(
         self, sha256_list: list[str], device_id: str
     ) -> set[str]:

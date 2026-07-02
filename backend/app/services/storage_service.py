@@ -2,6 +2,7 @@ import os
 import hashlib
 import time
 import aiofiles
+import uuid
 from pathlib import Path
 from fastapi import UploadFile
 from app.core.config import get_settings, Settings
@@ -9,6 +10,13 @@ from app.core.security import get_media_subfolder
 from app.core.logging import get_logger
 
 logger = get_logger(__name__)
+
+try:
+    import magic
+    HAS_MAGIC = True
+except ImportError:
+    HAS_MAGIC = False
+    logger.warning("python-magic not installed. MIME detection will be less accurate.")
 
 class StorageService:
     def __init__(self, settings: Settings | None = None) -> None:
@@ -26,6 +34,77 @@ class StorageService:
         for path in [self.images_path, self.videos_path, self.thumbnails_path, self.temp_path, self.logs_path]:
             path.mkdir(parents=True, exist_ok=True)
         logger.info(f"Storage directories ensured at {self.base_path}")
+
+    async def save_file_with_hash(self, file: UploadFile, original_filename: str) -> dict:
+        """
+        Save file while computing SHA256 and detecting MIME type in a single pass.
+        
+        Returns:
+            {
+                'upload_id': str (UUID),
+                'stored_filename': str,
+                'original_filename': str,
+                'sha256': str,
+                'mime_type': str,
+                'size': int,
+                'relative_path': str
+            }
+        """
+        # Generate UUID for the file
+        file_id = str(uuid.uuid4())
+        # Get file extension from original filename
+        _, ext = os.path.splitext(original_filename)
+        stored_filename = f"{file_id}{ext}"
+        
+        sha256_hash = hashlib.sha256()
+        total_size = 0
+        chunk_size = self.settings.CHUNK_READ_SIZE
+        
+        # Prepare storage based on initial MIME type
+        initial_mime = file.content_type or "application/octet-stream"
+        subfolder = get_media_subfolder(initial_mime)
+        dest_dir = self.media_path / subfolder
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_path = dest_dir / stored_filename
+        relative_path = f"media/{subfolder}/{stored_filename}"
+        
+        # Stream file to disk while computing hash and collecting bytes for MIME detection
+        first_chunk = True
+        magic_mime = None
+        
+        async with aiofiles.open(dest_path, "wb") as dest:
+            while chunk := await file.read(chunk_size):
+                # Compute hash
+                sha256_hash.update(chunk)
+                total_size += len(chunk)
+                
+                # Detect MIME type from first chunk using magic
+                if first_chunk and HAS_MAGIC:
+                    try:
+                        magic_mime = magic.from_buffer(chunk, mime=True)
+                        first_chunk = False
+                    except Exception as e:
+                        logger.warning(f"MIME detection failed: {e}")
+                        magic_mime = initial_mime
+                
+                # Write to disk
+                await dest.write(chunk)
+        
+        # Use detected MIME or fallback to client's content type
+        final_mime = magic_mime or initial_mime
+        
+        logger.info(f"Saved file {stored_filename} ({total_size} bytes, SHA256: {sha256_hash.hexdigest()}, MIME: {final_mime})")
+        
+        return {
+            'upload_id': file_id,
+            'stored_filename': stored_filename,
+            'original_filename': original_filename,
+            'sha256': sha256_hash.hexdigest(),
+            'mime_type': final_mime,
+            'size': total_size,
+            'relative_path': relative_path
+        }
+        
         
     async def save_file_streaming(self, file: UploadFile, stored_filename: str, mime_type: str) -> tuple[str, int]:
         """Stream file to disk in chunks. Returns (relative_path, file_size)."""
